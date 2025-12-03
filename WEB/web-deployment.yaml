@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: web
+  labels:
+    app: web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      initContainers:
+        - name: generate-ssl
+          image: nginx:latest
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              cp /script/generate-ssl.sh /tmp/generate-ssl.sh && \
+              chmod +x /tmp/generate-ssl.sh && \
+              mkdir -p /etc/nginx/ssl && \
+              cd /etc/nginx/ssl && \
+              /tmp/generate-ssl.sh
+          volumeMounts:
+            - name: ssl-volume
+              mountPath: /etc/nginx/ssl
+            - name: nginx-conf
+              mountPath: /script/generate-ssl.sh
+              subPath: generate-ssl.sh
+      containers:
+        - name: nginx
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+            - containerPort: 443
+          volumeMounts:
+            - name: nginx-conf
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: ssl-volume
+              mountPath: /etc/nginx/ssl
+      volumes:
+        - name: nginx-conf
+          configMap:
+            name: nginx-conf
+        - name: ssl-volume
+          emptyDir: {}

@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app: db
+  name: db
+  namespace: db
+spec:
+  replicas: 1
+  serviceName: db
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+        - image: mysql:8
+          name: mysql
+          # ports
+          ports:
+            - name: mysql
+              containerPort: 3306
+          # Probes
+          startupProbe:
+            exec:
+              command:
+                ["mysqladmin", "ping", "-uroot", "-p$MYSQL_ROOT_PASSWORD"]
+            initialDelaySeconds: 5
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 5
+
+          readinessProbe:
+            exec:
+              command:
+                ["mysqladmin", "ping", "-uroot", "-p$MYSQL_ROOT_PASSWORD"]
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 5
+          livenessProbe:
+            exec:
+              command:
+                ["mysqladmin", "ping", "-uroot", "-p$MYSQL_ROOT_PASSWORD"]
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 5
+          # environment variables
+          env:
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: MYSQL_DATABASE
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: MYSQL_ROOT_PASSWORD
+          volumeMounts:
+            - name: db-pvc
+              mountPath: "/var/lib/mysql"
+            - name: db-query-vol
+              mountPath: /docker-entrypoint-initdb.d
+          # resources
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "1"
+      volumes:
+        - name: db-query-vol
+          configMap:
+            name: db-query
+          # pvc templates
+  volumeClaimTemplates:
+    - metadata:
+        name: db-pvc
+        namespace: db
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: mysql-rmq-gp3-ebs
+        resources:
+          requests:
+            storage: 1Gi
