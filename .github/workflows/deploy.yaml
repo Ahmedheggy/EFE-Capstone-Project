@@ -1,53 +1,51 @@
-name: CI/CD Pipeline for Terraform
+name: "Terraform EKS Pipeline"
 
 on:
   push:
     branches:
       - main
-      - develop
+permissions:
+  contents: read
+  pull-requests: write
 
 jobs:
   terraform:
+    name: "Terraform"
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
+      # 1. Get the code
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Set up AWS CLI
-      run: |
-        aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws configure set region us-east-1
+      # 2. Login to AWS
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-    - name: Set up Terraform
-      uses: hashicorp/setup-terraform@v1
-      with:
-        terraform_version: '1.0.0'
+      # 3. Install Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.5.0"
 
-    - name: Terraform Init
-      run: terraform init
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-        AWS_DEFAULT_REGION: us-east-1
+      # 4. Connect to S3 Backend and download plugins
+      - name: Terraform Init
+        id: init
+        run: terraform init
 
-    - name: Terraform Plan
-      run: terraform plan -out=plan.tfplan
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-        AWS_DEFAULT_REGION: us-east-1
+      # 5. Check for errors
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate
 
-    - name: Remove existing resource from Terraform state
-      run: terraform state rm module.eks.aws_eks_access_entry.admin
-
-    - name: Terraform Apply
-      run: terraform apply -auto-approve plan.tfplan
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-        AWS_DEFAULT_REGION: us-east-1
+      # 8. Apply Changes (Only on Push to Main)
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: terraform apply -auto-approve
