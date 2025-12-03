@@ -35,15 +35,8 @@ jobs:
         AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
         AWS_DEFAULT_REGION: us-east-1
 
-    - name: Check if resources exist (Skip if resource exists)
-      run: |
-        # Check if the plan contains any actions to create new resources
-        if terraform show -json plan.tfplan | grep -q '"action": "create"'; then
-          echo "Resources to be created found. Continuing with terraform apply."
-        else
-          echo "No resources found for creation. Skipping apply step."
-          exit 0  # Skip terraform apply if no new resources or changes
-        fi
+    - name: Remove existing resource from Terraform state
+      run: terraform state rm module.eks.aws_eks_access_entry.admin
 
     - name: Terraform Apply
       run: terraform apply -auto-approve plan.tfplan
