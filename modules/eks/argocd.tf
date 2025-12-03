@@ -31,37 +31,37 @@ resource "aws_eks_pod_identity_association" "argo_updater" {
 }
 
 
+# ---------------------------------------------------------------------------
+# 1. INSTALL ARGOCD (The Engine)
+# ---------------------------------------------------------------------------
+
+# We use "argocd_v2" to force Terraform to treat this as a new resource
+# and break any "stuck" state from previous failed attempts.
 resource "helm_release" "argocd_v2" {
   name             = "argocd"
   repository       = "https://argoproj.github.io/argo-helm"
   chart            = "argo-cd"
   namespace        = "argocd"
   create_namespace = true
-  version          = "7.7.0" # Pinning version for stability
+  version          = "7.7.0" 
 
-  # Configure ArgoCD to run on NodePort (Bypass AWS LoadBalancer restriction)
+  # 1. Set Type to LoadBalancer (AWS will default to Classic LB)
   set {
     name  = "server.service.type"
     value = "LoadBalancer"
   }
 
-  # 2. DO NOT add "aws-load-balancer-type" annotation.
-  # By omitting it, AWS defaults to Classic Load Balancer (CLB).
-
-  # 3. Terminate TLS at the LB (Optional, but standard for CLB)
-  # This maps Port 80 on the LB to the HTTP port on the container
-  set {
-    name  = "server.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-connection-draining-enabled"
-    value = "true"
-  }
-
-  # 4. Remove NodePort settings (Let AWS handle the ports)
-  # (Make sure you don't have server.service.nodePorts set)
-
-  # 5. Run in insecure mode (since we don't have a domain cert yet)
+  # 2. Run in insecure mode (HTTP)
+  # This avoids TLS issues since we don't have a domain certificate yet
   set {
     name  = "server.extraArgs"
     value = "{--insecure}"
+  }
+
+  # 3. Connection Draining (Standard for Classic LB)
+  set {
+    name  = "server.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-connection-draining-enabled"
+    value = "true"
   }
 
   depends_on = [
@@ -71,14 +71,18 @@ resource "helm_release" "argocd_v2" {
   ]
 }
 
+# ---------------------------------------------------------------------------
+# 2. INSTALL ARGO IMAGE UPDATER (The Automation)
+# ---------------------------------------------------------------------------
+
 resource "helm_release" "updater" {
   name       = "argo-image-updater"
   repository = "https://argoproj.github.io/argo-helm"
-  chart      = "argocd-image-updater"
+  chart      = "argocd-image-updater" # Correct Chart Name
   namespace  = "argocd"
-  version    = "1.0.1"
+  version    = "0.9.1"                # Stable Version
 
-  # Link to the Service Account we created via Pod Identity
+  # --- Service Account (Linked to IAM Role for ECR Access) ---
   set {
     name  = "serviceAccount.create"
     value = "true"
@@ -88,7 +92,7 @@ resource "helm_release" "updater" {
     value = "argo-image-updater"
   }
   
-  # Configure ECR settings
+  # --- ECR Registry Configuration ---
   set {
     name  = "config.registries[0].name"
     value = "ECR"
@@ -107,11 +111,25 @@ resource "helm_release" "updater" {
   }
   set {
     name  = "config.registries[0].credentials"
-    value = "ext:/scripts/ecr-login.sh" # Uses the IAM Role/Pod Identity automatically
+    value = "ext:/scripts/ecr-login.sh"
   }
   set {
     name  = "config.registries[0].credsexpire"
     value = "10h"
+  }
+
+  # --- FIX FOR CRASH LOOP ---
+  # Since ArgoCD is running with --insecure (HTTP), the updater 
+  # must connect via plaintext. Do NOT set 'insecure=true' here.
+  
+  set {
+    name  = "config.argocd.plaintext"
+    value = "true"
+  }
+
+  set {
+    name  = "config.argocd.serverAddress"
+    value = "argocd-server.argocd.svc:80"
   }
 
   depends_on = [
