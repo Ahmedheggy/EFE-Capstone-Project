@@ -37,13 +37,12 @@ jobs:
 
     - name: Check if resources exist (Skip if resource exists)
       run: |
-        # Show the planned changes and check for existing resources
-        terraform show -json plan.tfplan | jq '.resource_changes[] | select(.change.actions | index("create") or index("update"))' > created_or_updated_resources.txt
-        if [ -s created_or_updated_resources.txt ]; then
-          echo "Resources to be created or updated found. Continuing with terraform apply."
+        # Check if the plan contains any actions to create new resources
+        if terraform show -json plan.tfplan | grep -q '"action": "create"'; then
+          echo "Resources to be created found. Continuing with terraform apply."
         else
-          echo "No resources found for creation or update. Skipping apply step."
-          exit 0  # Skip terraform apply if no new resources or updates
+          echo "No resources found for creation. Skipping apply step."
+          exit 0  # Skip terraform apply if no new resources or changes
         fi
 
     - name: Terraform Apply
