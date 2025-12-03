@@ -115,7 +115,7 @@ resource "helm_release" "updater" {
   }
 
   depends_on = [
-    helm_release.argocd,
+    helm_release.argocd_v2,
     aws_eks_pod_identity_association.argo_updater
   ]
 }
