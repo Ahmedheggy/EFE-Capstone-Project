@@ -46,11 +46,11 @@ resource "helm_release" "argocd" {
   }
   set {
     name  = "server.service.nodePorts.http"
-    value = "30080" # Access via http://<NODE_IP>:30080
+    value = "30081" # Access via http://<NODE_IP>:30080
   }
   set {
     name  = "server.service.nodePorts.https"
-    value = "30443" # Access via https://<NODE_IP>:30443
+    value = "30444" # Access via https://<NODE_IP>:30443
   }
   
   # Disable TLS on the pod level to simplify NodePort access (Optional but recommended for testing)
