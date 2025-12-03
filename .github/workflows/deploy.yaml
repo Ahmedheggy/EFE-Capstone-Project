@@ -37,13 +37,12 @@ jobs:
 
     - name: Check if resources exist (Skip if resource exists)
       run: |
-        # Show the planned changes and check for existing resources
-        terraform show -json plan.tfplan | jq '.resource_changes[] | select(.change.actions | index("create"))' > created_resources.txt
-        if [ -s created_resources.txt ]; then
+        terraform show -json plan.tfplan | grep -q 'create'
+        if [ $? -eq 0 ]; then
           echo "Resources to be created found. Continuing with terraform apply."
         else
           echo "No resources found for creation. Skipping apply step."
-          exit 0  # Skip the apply step if no new resources
+          exit 0  # Skip terraform apply if no resources found
         fi
 
     - name: Terraform Apply
@@ -53,4 +52,3 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
         AWS_DEFAULT_REGION: us-east-1
-
