@@ -31,7 +31,7 @@ resource "aws_eks_pod_identity_association" "argo_updater" {
 }
 
 
-resource "helm_release" "argocd" {
+resource "helm_release" "argocd_v2" {
   name             = "argocd"
   repository       = "https://argoproj.github.io/argo-helm"
   chart            = "argo-cd"
@@ -42,18 +42,23 @@ resource "helm_release" "argocd" {
   # Configure ArgoCD to run on NodePort (Bypass AWS LoadBalancer restriction)
   set {
     name  = "server.service.type"
-    value = "NodePort"
+    value = "LoadBalancer"
   }
+
+  # 2. DO NOT add "aws-load-balancer-type" annotation.
+  # By omitting it, AWS defaults to Classic Load Balancer (CLB).
+
+  # 3. Terminate TLS at the LB (Optional, but standard for CLB)
+  # This maps Port 80 on the LB to the HTTP port on the container
   set {
-    name  = "server.service.nodePorts.http"
-    value = "30091" # Access via http://<NODE_IP>:30080
+    name  = "server.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-connection-draining-enabled"
+    value = "true"
   }
-  set {
-    name  = "server.service.nodePorts.https"
-    value = "30446" # Access via https://<NODE_IP>:30443
-  }
-  
-  # Disable TLS on the pod level to simplify NodePort access (Optional but recommended for testing)
+
+  # 4. Remove NodePort settings (Let AWS handle the ports)
+  # (Make sure you don't have server.service.nodePorts set)
+
+  # 5. Run in insecure mode (since we don't have a domain cert yet)
   set {
     name  = "server.extraArgs"
     value = "{--insecure}"
@@ -65,7 +70,6 @@ resource "helm_release" "argocd" {
     aws_eks_access_policy_association.admin
   ]
 }
-
 
 resource "helm_release" "updater" {
   name       = "argo-image-updater"
