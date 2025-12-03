@@ -107,7 +107,7 @@ resource "helm_release" "updater" {
   }
   set {
     name  = "config.registries[0].ping"
-    value = "yes"
+    value = "true"
   }
   set {
     name  = "config.registries[0].credentials"
