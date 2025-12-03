@@ -21,7 +21,7 @@ spec:
         runAsUser: 1040
         runAsGroup: 1040
       containers:
-        - image: mohamedelsayed22/vprofile:v1.1
+        - image: java-app-image
           name: vprofile
           ports:
             - name: tomcat
