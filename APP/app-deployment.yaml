@@ -47,19 +47,19 @@ spec:
                 secretKeyRef:
                   name: app-secret
                   key: RABBITMQ_ADDRESS
-          # probes
-          readinessProbe:
-            httpGet:
-              path: /healthz
-              port: 8080
-            initialDelaySeconds: 60
-            periodSeconds: 3
-          livenessProbe:
-            httpGet:
-              path: /healthz
-              port: 8080
-            initialDelaySeconds: 60
-            periodSeconds: 3
+          # # probes
+          # readinessProbe:
+          #   httpGet:
+          #     path: /healthz
+          #     port: 8080
+          #   initialDelaySeconds: 60
+          #   periodSeconds: 3
+          # livenessProbe:
+          #   httpGet:
+          #     path: /healthz
+          #     port: 8080
+          #   initialDelaySeconds: 60
+          #   periodSeconds: 3
           # resources
           resources:
             requests:
