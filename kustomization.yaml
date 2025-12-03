@@ -15,4 +15,4 @@ resources:
 images:
 - name: java-app-image
   newName: 079815393835.dkr.ecr.us-east-1.amazonaws.com/app
-  newTag: 28d413f
+  newTag: latest
