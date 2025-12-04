@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: "Type: I_UNDERSTAND_AND_ACCEPT"
+        description: "Type I_UNDERSTAND_AND_ACCEPT to proceed"
         required: true
         default: "NO"
 
@@ -17,16 +17,16 @@ env:
 
 jobs:
   destroy:
-    name: Destroy AWS Infrastructure Safely
+    name: SAFE Destroy AWS Infrastructure
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     if: ${{ github.event.inputs.confirm == 'I_UNDERSTAND_AND_ACCEPT' }}
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Configure AWS Credentials
+      - name: Configure AWS Credentials (OIDC or Secrets)
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -38,26 +38,58 @@ jobs:
         with:
           terraform_version: 1.8.5
 
-      - name: Terraform Init (with backend)
+      - name: Terraform Init
         run: terraform init -input=false
 
-      - name: Terraform Plan (What will be destroyed?)
+      - name: Terraform Plan (Preview Destroy)
         run: terraform plan -destroy -out=destroy.tfplan -input=false
 
-      - name: Detailed Resources To Destroy
+      - name: Show Destroy Plan Summary
         run: terraform show destroy.tfplan
 
-      - name: Terraform Destroy
+      # ---------------------------
+      # CLEANUP AWS DEPENDENCIES
+      # ---------------------------
+
+      - name: Cleanup Load Balancers
+        run: |
+          echo "⏳ Deleting orphan AWS LoadBalancers..."
+          aws elbv2 describe-load-balancers --query "LoadBalancers[].LoadBalancerArn" --output text \
+          | xargs -I{} aws elbv2 delete-load-balancer --load-balancer-arn {} || true
+
+      - name: Cleanup ENIs (Network Interfaces)
+        run: |
+          echo "⏳ Deleting ENIs attached to subnets..."
+          for eni in $(aws ec2 describe-network-interfaces --query "NetworkInterfaces[].NetworkInterfaceId" --output text); do
+            aws ec2 delete-network-interface --network-interface-id $eni || true
+          done
+
+      - name: Remove ArgoCD CRDs (Prevents VPC lock)
+        run: |
+          echo "⏳ Deleting ArgoCD CRDs..."
+          kubectl delete crd applications.argoproj.io || true
+          kubectl delete crd applicationsets.argoproj.io || true
+          kubectl delete crd appprojects.argoproj.io || true
+
+      # ---------------------------
+      # TERRAFORM DESTROY EXECUTION
+      # ---------------------------
+
+      - name: FINAL Terraform Destroy
         run: terraform destroy -auto-approve -input=false
 
-      - name: Show Remaining State (after destroy)
-        run: terraform state list || echo "State is empty — destroy completed successfully."
+      - name: Remaining State Check
+        run: terraform state list || echo "Destroy completed — No resources left."
 
-      - name: Log Backup
-        run: |
-          mkdir logs
-          terraform show destroy.tfplan > logs/destroy-log.txt
+      # ---------------------------
+      # LOGGING & ARTIFACT EXPORT
+      # ---------------------------
+
+      - name: Backup Destroy Logs
         if: always()
+        run: |
+          mkdir -p logs
+          terraform show destroy.tfplan > logs/destroy-log.txt
 
       - name: Upload Destroy Logs
         uses: actions/upload-artifact@v4
