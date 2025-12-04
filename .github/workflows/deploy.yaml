@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "*.tf"
+      - "modules/**"
+      - "infrastructure/**"
+
 permissions:
   contents: read
   pull-requests: write
