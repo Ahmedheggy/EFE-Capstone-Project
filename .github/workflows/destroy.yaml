@@ -1,0 +1,76 @@
+name: Terraform Destroy Infrastructure (Manual)
+
+on:
+    workflow_dispatch:
+        inputs:
+            confirm:
+                description: "Type: I_UNDERSTAND_AND_ACCEPT"
+                required: true
+                default: "NO"
+
+permissions:
+    contents: read
+    id-token: write
+
+env:
+    AWS_REGION: us-east-1
+
+jobs:
+    destroy:
+        name: Destroy AWS Infrastructure Safely
+        runs-on: ubuntu-latest
+        timeout-minutes: 45
+        if: ${{ github.event.inputs.confirm == 'I_UNDERSTAND_AND_ACCEPT' }}
+
+        steps:
+            - name: Checkout Repository
+              uses: actions/checkout@v4
+
+            - name: Configure AWS Credentials
+              uses: aws-actions/configure-aws-credentials@v2
+              with:
+                  aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                  aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                  aws-region: ${{ secrets.AWS_REGION }}
+
+            - name: Setup Terraform
+              uses: hashicorp/setup-terraform@v2
+              with:
+                  terraform_version: 1.8.5
+
+            - name: Terraform Init (with backend)
+              run: terraform init -input=false
+
+            - name: Terraform Plan (What will be destroyed?)
+              run: terraform plan -destroy -out=destroy.tfplan -input=false
+
+            - name: Detailed Resources To Destroy
+              run: terraform show destroy.tfplan
+
+            - name: Final Approval Before Destroy (safety gate)
+              uses: trstringer/manual-approval@v1
+              with:
+                  approvers: ${{ github.actor }}
+                  minimum-approvals: 1
+                  issue-title: "Approve Destroy Request"
+                  issue-body: |
+                      Infrastructure destroy was requested.
+                      Click **Approve** to continue.
+
+            - name: Terraform Destroy
+              run: terraform destroy -auto-approve -input=false
+
+            - name: Show Remaining State (after destroy)
+              run: terraform state list || echo "State is empty — destroy completed successfully."
+
+            - name: Log Backup
+              run: |
+                  mkdir logs
+                  terraform show destroy.tfplan > logs/destroy-log.txt
+              if: always()
+
+            - name: Upload Destroy Logs
+              uses: actions/upload-artifact@v4
+              with:
+                  name: destroy_logs
+                  path: logs/destroy-log.txt
