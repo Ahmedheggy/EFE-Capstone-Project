@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: mc
+  name: mc
+  namespace: mc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mc
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: mc
+    spec:
+      # security context
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+      containers:
+        - image: memcached
+          name: memcached
+          ports:
+            - name: memcached
+              containerPort: 11211
+          # probes
+          livenessProbe:
+            tcpSocket:
+              port: 11211
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 11211
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          # resources
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

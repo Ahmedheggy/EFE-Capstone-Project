@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: app
+  name: app
+  namespace: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: app
+    spec:
+      securityContext:
+        runAsUser: 1040
+        runAsGroup: 1040
+      containers:
+        - image: mohamedelsayed22/vprofile:v1.1
+          name: vprofile
+          ports:
+            - name: tomcat
+              containerPort: 8080
+          env:
+            - name: JDBC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: JDBC_URL
+            - name: MEMCACHED_ACTIVE_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: MEMCACHED_ACTIVE_HOST
+            - name: MEMCACHED_STANDBY_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: MEMCACHED_STANDBY_HOST
+            - name: RABBITMQ_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: RABBITMQ_ADDRESS
+          # probes
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 3
+          # resources
+          resources:
+            requests:
+              cpu: "1"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
