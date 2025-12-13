@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - rmq-namespace.yaml
+  - rmq-secret.yaml
+  - rmq-Statefulset.yaml
+  - rmq-service.yaml
+  - rmq-networkpolicy.yaml
