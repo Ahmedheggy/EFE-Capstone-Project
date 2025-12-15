@@ -1,10 +1,11 @@
 name: Build app and Docker img for Tomcat
 
 on:
-  push:
+  pull_request:
     branches:
-      - Ci-Branch
-
+      - main
+    paths:
+      - "sourcecodeseniorwr/**"
 concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
