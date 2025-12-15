@@ -1,7 +1,7 @@
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: mysql-rmq-gp3-ebs
+  name: mysql-gp3-ebs
   annotations:
     storageclass.kubernetes.io/is-default-class: "false"
 provisioner: ebs.csi.aws.com
