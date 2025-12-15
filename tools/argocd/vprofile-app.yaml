@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: vprofile-stack
+  namespace: argocd
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: vprofile=079815393835.dkr.ecr.us-east-1.amazonaws.com/vprofile
+    argocd-image-updater.argoproj.io/write-back-method: git
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Ahmedheggy/EFE-Capstone-Project.git
+    targetRevision: main
+    path: Application-CD
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ""
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
