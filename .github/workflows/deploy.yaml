@@ -1,13 +1,7 @@
 name: "Terraform EKS Pipeline"
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "*.tf"
-      - "modules/**"
-      - "infrastructure/**"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -20,6 +14,7 @@ jobs:
     defaults:
       run:
         shell: bash
+        working-directory: ./Terrafrom
 
     steps:
       # 1. Get the code
@@ -50,7 +45,7 @@ jobs:
         id: validate
         run: terraform validate
 
-      # 8. Apply Changes (Only on Push to Main)
+      # 8. Apply Changes (Manual Trigger)
       - name: Terraform Apply
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
         run: terraform apply -auto-approve
