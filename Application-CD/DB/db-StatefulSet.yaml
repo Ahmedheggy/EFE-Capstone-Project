@@ -86,6 +86,7 @@ spec:
       spec:
         accessModes:
           - ReadWriteOnce
+        storageClassName: mysql-gp3-ebs
         resources:
           requests:
             storage: 3Gi
