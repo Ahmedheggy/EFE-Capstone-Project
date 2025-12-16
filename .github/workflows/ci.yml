@@ -1,9 +1,9 @@
 name: Build app and Docker img for Tomcat
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
+      - Ci-Branch
     paths:
       - "sourcecodeseniorwr/**"
 concurrency:
